@@ -1,0 +1,79 @@
+<%inherit file="/base.html"/>
+
+<%block name="content">
+
+    <div class="home-page" id="haha">
+        <div class="wrapper">
+        <div>{{ip}}</div>
+        <div>{{biz_id}}</div>
+        <div>{{yun_id}}</div>
+        <label>选择主机：</label>
+        <i-select v-model="searchip" style="width:80%">
+        <i-option v-for="item in hostlist" :value="item.ip">{{item.ip}}</i-option>
+        </i-select>
+        <i-button type="primary" @click="get_host_line_data()">查看性能</i-button>
+        <div >
+            <div id="line" style="height:400px;padding:10px;width: 90%;"></div>
+        </div>
+        </div>
+    </div>
+</%block>
+<script>
+     new Vue({
+      el: '#haha',
+      data: function () {
+        return {
+            ip:"${ip}",
+            biz_id:"${biz_id}",
+            yun_id:"${yun_id}",
+            hostlist:[],
+            searchip: '',
+            chartData: {},
+            lineData: {}
+        }
+      },
+         methods:{
+            get_monitor_host() {
+                let self = this
+                axios.get(site_url + 'api/get_db_host_list/?ip='+ '').then(function(response){
+                    self.hostlist = response.data["data"]
+
+                })
+            },
+            get_host_line_data() {
+                let self = this
+                axios.get(site_url + 'api/get_host_line_data/?ip='+this.searchip).then(function(response){
+                    self.lineData = response.data["data"]
+                    self.initLineChart()
+                })
+            },
+            initLineChart(){
+               createBarChart({
+                     selector: 'line', // 图表容器
+                    data: this.lineData, // 图表数据
+                 })
+            },
+
+        },
+        created(){
+            this.get_monitor_host()
+
+        },
+         mounted() {
+         }
+    })
+</script>
+<style>
+    .charts-wrapper{
+
+    }
+    .charts-wrapper{
+        width: 50%;
+        float:left;
+        border:1px solid #ddd;
+    }}
+</style>
+
+
+
+

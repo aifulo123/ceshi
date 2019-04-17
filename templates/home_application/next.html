@@ -1,0 +1,220 @@
+<%inherit file="/base.html"/>
+
+<%block name="content">
+
+    <div class="home-page" id="main">
+        <div class="wrapper">
+        <div>
+        <i-button type="primary" @click="show()" style="float:right">新增主机</i-button>
+        <label>选择业务</label>
+        <i-select v-model="biz" style="width:80%;margin:10px;">
+        <i-option v-for="item in biz_list" :value="item.bk_biz_id">{{item.bk_biz_name}}</i-option>
+        </i-select>
+        <br/>
+        <label>查询ip：</label>
+        <i-input type="textarea" :rows="3" v-model="searchip" placeholder="多个ip用逗号分隔" style="width:80%;margin:10px;"></i-input>
+        <i-button type="primary" @click="get_host_list()">查询</i-button>
+            <Modal
+        v-model="modal1"
+        title=""
+        @on-ok="ok"
+        @on-cancel="cancel">
+        <label v-if="enable">确定添加监控？</label>
+        <label v-if="!enable">确定取消监控？</label>
+    </Modal>
+        </div>
+        <i-table  class="tables" border :columns="table_col" :data="table_list"></i-table>
+        </div>
+        <Spin fix v-if="showload">
+                <Icon type="load-c" size=18 class="demo-spin-icon-load"></Icon>
+                <div>Loading</div>
+        </Spin>
+    </div>
+</%block>
+<script>
+     new Vue({
+      el: '#main',
+      data: function () {
+        return {
+            modal1: false,
+            showload: false,
+            host: '',
+            biz: '',
+            enable: true,
+            searchip: '',
+            biz_list: [],
+            host_list: [],
+            table_list: [],
+            table_col: [
+                    {
+                        title: 'ip',
+                        key: 'bk_host_innerip'
+                    },
+                    {
+                        title: '名称',
+                        key: 'bk_host_name'
+                    },
+                    {
+                        title: '业务',
+                        key: 'biz'
+                    },
+                    {
+                        title: '云区域',
+                        key: 'yun'
+                    },
+                    {
+                        title: '操作系统',
+                        key: 'bk_os_name'
+                    },
+                    {
+                        title: '内存',
+                        key: 'memory'
+                    },
+                    {
+                        title: 'cpu',
+                        key: 'cpu'
+                    },
+                    {
+                        title: '磁盘',
+                        key: 'disk'
+                    },
+                    {
+                        title: '操作',
+                        fixed: 'right',
+                        width: 200,
+                        key: 'action',
+                        render: (h, params) => {
+                            return h('div', [h('i-button', {
+                                props: {type: 'success', size: 'small'},
+                                style: {margin: '0 5px'},
+                                on: {
+                                    click: () => {
+                                        this.detail(params.row)
+                                    }
+                                }
+                            }, '查看性能'),
+                            h('i-button', {
+                                props: {type: 'primary', size: 'small'},
+                                style: {margin: '0 5px'},
+                                on: {
+                                    click: () => {
+                                        this.del(params.row)
+                                    }
+                                }
+                            }, params.row.ismonitor?'取消监控':'添加监控')
+                            ])
+                        }
+                    }
+                ]
+           
+        }
+      },
+         methods:{
+            show () {
+                this.modal1 = true
+            },
+            ok () {
+                this.add_host()
+                this.modal1 = false
+            },
+            cancel () {
+                this.modal1 = false
+            },
+            get_biz_list () {
+                let self = this
+                axios.get(site_url + 'api/get_biz_list/').then(function(response){
+                    self.biz_list = response.data["data"]
+                    if(self.biz_list.length>0){
+                        self.biz = self.biz_list[0].bk_biz_id
+                    }
+
+                })
+
+            },
+            get_host_list (val) {
+                let self = this
+                this.showload = true
+                axios.get(site_url + 'api/get_host_list_not_set/?biz_id='+ this.biz + '&ip=' + this.searchip).then(function(response){
+                    
+                    self.table_list = response.data["data"]
+                    self.showload = false
+
+                })
+
+            },
+            add_host () {
+                let self = this
+                axios.get(site_url + 'api/add_host/?biz_id='+this.biz + '&ip=' +this.host).then(function(response){
+                    if (response.data["result"]){
+                        self.$Message.info("新增成功")
+                        self.search_ip()
+                    }
+                    else{
+                        self.$Message.info("新增失败")
+                    }
+                })
+
+            },
+            search_ip () {
+                let self = this
+                axios.get(site_url + 'api/get_db_host_list/?ip=' +this.searchip).then(function(response){
+                    self.table_list = response.data["data"]
+
+                })
+            },
+            detail (val) {
+                let self = this
+                this.showload = true
+                axios.get(site_url + 'api/get_host_property?ip=' + val.bk_host_innerip +'&biz_id=' + val.biz_id + '&yun_id=' + val.yun_id).then(
+                    function(response){
+                        self.showload = false
+                        data = response.data["data"]
+                        val.memory = data["memory"]
+                        val.cpu = data["cpu"]
+                        val.disk = data["disk"]
+                    }
+                ) 
+
+            },
+            del (val) {
+                let self = this
+                params = {
+                "biz_id":val.biz_id,
+                "host_name":val.bk_host_name,
+                "ip":val.bk_host_innerip,
+                "is_monitor":val.ismonitor,
+                "cloud_id":val.yun_id
+            }
+            axios.post(site_url+'api/set_host_monitor/',params).then(function(response){
+                alert(response.data["data"])
+                self.get_host_list()
+
+            })
+            }
+
+
+
+         },
+        watch : {
+
+        },
+        created(){
+            this.get_biz_list()
+        }
+    })
+</script>
+<style>
+    .charts-wrapper{
+
+    }
+    .charts-wrapper{
+        width: 50%;
+        float:left;
+        border:1px solid #ddd;
+    }
+    .tables{
+        margin-top:20px;
+    }
+</style>
+
+
